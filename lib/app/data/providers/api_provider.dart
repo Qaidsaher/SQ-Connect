@@ -2,11 +2,12 @@
 
 import 'package:dio/dio.dart';
 import 'package:sq_connect/app/data/models/api_response_model.dart';
-import 'package:sq_connect/app/data/models/user_model.dart'; // Import other models as needed
-import 'package:sq_connect/app/data/providers/dio_client.dart';
-import 'package:sq_connect/app/data/models/post_model.dart';
 import 'package:sq_connect/app/data/models/comment_model.dart';
 import 'package:sq_connect/app/data/models/message_model.dart';
+import 'package:sq_connect/app/data/models/notification_model.dart';
+import 'package:sq_connect/app/data/models/post_model.dart';
+import 'package:sq_connect/app/data/models/user_model.dart'; // Import other models as needed
+import 'package:sq_connect/app/data/providers/dio_client.dart';
 
 class ApiProvider {
   final DioClient _dioClient;
@@ -369,54 +370,80 @@ class ApiProvider {
     }
   }
 
- Future<ApiResponse<List<Message>>> getConversations({int page = 1}) async {
-  try {
-    final response = await _dioClient.get('/messages/conversations', queryParameters: {'page': page});
-    // Laravel's default pagination is wrapped in its own 'data' key by the paginator object
-    // Your sendResponse also wraps everything in a 'data' key.
-    // So, response.data['data'] is the paginator object.
-    // And response.data['data']['data'] is the actual list of messages.
+  Future<ApiResponse<List<Message>>> getConversations({int page = 1}) async {
+    try {
+      final response = await _dioClient.get(
+        '/messages/conversations',
+        queryParameters: {'page': page},
+      );
+      // Laravel's default pagination is wrapped in its own 'data' key by the paginator object
+      // Your sendResponse also wraps everything in a 'data' key.
+      // So, response.data['data'] is the paginator object.
+      // And response.data['data']['data'] is the actual list of messages.
 
-    // First, check if the overall response and the top-level 'data' are successful
-    if (response.data != null && response.data['success'] == true && response.data['data'] != null) {
-      final paginatedData = response.data['data']; // This is the Laravel Paginator object
+      // First, check if the overall response and the top-level 'data' are successful
+      if (response.data != null &&
+          response.data['success'] == true &&
+          response.data['data'] != null) {
+        final paginatedData =
+            response.data['data']; // This is the Laravel Paginator object
 
-      // Ensure 'data' key exists within the paginatedData (the array of messages)
-      if (paginatedData['data'] is List) {
-        final List<dynamic> conversationListJson = paginatedData['data'] as List<dynamic>;
-        final conversations = conversationListJson
-            .map((json) => Message.fromJson(json as Map<String, dynamic>))
-            .toList();
-        // You might want to return the full paginator object if you need pagination controls in UI
-        // For now, just the list of messages:
-        return ApiResponse(
+        // Ensure 'data' key exists within the paginatedData (the array of messages)
+        if (paginatedData['data'] is List) {
+          final List<dynamic> conversationListJson =
+              paginatedData['data'] as List<dynamic>;
+          final conversations =
+              conversationListJson
+                  .map((json) => Message.fromJson(json as Map<String, dynamic>))
+                  .toList();
+          // You might want to return the full paginator object if you need pagination controls in UI
+          // For now, just the list of messages:
+          return ApiResponse(
             success: true,
             data: conversations,
-            message: response.data['message'] ?? "Conversations fetched");
+            message: response.data['message'] ?? "Conversations fetched",
+          );
+        } else {
+          // 'data' key within paginatedData is not a list or is missing
+          print(
+            "API_PROVIDER_CONVERSATIONS: 'data' array missing in paginated response.",
+          );
+          return ApiResponse(
+            success: false,
+            message: "Unexpected response format for conversations list.",
+            data: null,
+          );
+        }
       } else {
-        // 'data' key within paginatedData is not a list or is missing
-        print("API_PROVIDER_CONVERSATIONS: 'data' array missing in paginated response.");
-        return ApiResponse(success: false, message: "Unexpected response format for conversations list.", data: null);
+        // Top-level response structure is not as expected
+        print(
+          "API_PROVIDER_CONVERSATIONS: Invalid top-level response structure. Success: ${response.data?['success']}, Data: ${response.data?['data']}",
+        );
+        return ApiResponse(
+          success: false,
+          message:
+              response.data?['message'] ?? "Failed to fetch conversations.",
+          data: null,
+        );
       }
-    } else {
-      // Top-level response structure is not as expected
-      print("API_PROVIDER_CONVERSATIONS: Invalid top-level response structure. Success: ${response.data?['success']}, Data: ${response.data?['data']}");
-      return ApiResponse(success: false, message: response.data?['message'] ?? "Failed to fetch conversations.", data: null);
-    }
-
-  } on DioException catch (e) {
-    String errorMessage = e.message ?? 'Failed to fetch conversations (Dio).';
-    if (e.response?.data != null && e.response!.data is Map) {
+    } on DioException catch (e) {
+      String errorMessage = e.message ?? 'Failed to fetch conversations (Dio).';
+      if (e.response?.data != null && e.response!.data is Map) {
         final responseMap = e.response!.data as Map<String, dynamic>;
         errorMessage = responseMap['message'] as String? ?? errorMessage;
+      }
+      print("API_PROVIDER_CONVERSATIONS: DioException - $errorMessage");
+      return ApiResponse(success: false, message: errorMessage, data: null);
+    } catch (e, s) {
+      print("API_PROVIDER_CONVERSATIONS: Unexpected error - $e\n$s");
+      return ApiResponse(
+        success: false,
+        message: 'An unexpected error occurred: ${e.toString()}',
+        data: null,
+      );
     }
-    print("API_PROVIDER_CONVERSATIONS: DioException - $errorMessage");
-    return ApiResponse(success: false, message: errorMessage, data: null);
-  } catch (e, s) {
-    print("API_PROVIDER_CONVERSATIONS: Unexpected error - $e\n$s");
-    return ApiResponse(success: false, message: 'An unexpected error occurred: ${e.toString()}', data: null);
   }
-}
+
   Future<ApiResponse<List<Message>>> getMessagesWithUser(
     int userId, {
     int page = 1,
@@ -535,13 +562,20 @@ class ApiProvider {
       );
     }
   }
-  
-Future<ApiResponse<dynamic>> followUser(int userId) async {
+
+  Future<ApiResponse<dynamic>> followUser(int userId) async {
     try {
       final response = await _dioClient.post('/users/$userId/follow');
-      return ApiResponse.fromJson(response.data, (data) => data); // Data might just be a message
+      return ApiResponse.fromJson(
+        response.data,
+        (data) => data,
+      ); // Data might just be a message
     } on DioException catch (e) {
-      return ApiResponse.fromJson(e.response?.data ?? {'success': false, 'message': e.message ?? 'Failed to follow user'}, (data) => null);
+      return ApiResponse.fromJson(
+        e.response?.data ??
+            {'success': false, 'message': e.message ?? 'Failed to follow user'},
+        (data) => null,
+      );
     }
   }
 
@@ -550,31 +584,132 @@ Future<ApiResponse<dynamic>> followUser(int userId) async {
       final response = await _dioClient.delete('/users/$userId/unfollow');
       return ApiResponse.fromJson(response.data, (data) => data);
     } on DioException catch (e) {
-      return ApiResponse.fromJson(e.response?.data ?? {'success': false, 'message': e.message ?? 'Failed to unfollow user'}, (data) => null);
+      return ApiResponse.fromJson(
+        e.response?.data ??
+            {
+              'success': false,
+              'message': e.message ?? 'Failed to unfollow user',
+            },
+        (data) => null,
+      );
     }
   }
 
-  Future<ApiResponse<List<User>>> getFollowingList(int userId, {int page = 1}) async {
+  Future<ApiResponse<List<User>>> getFollowingList(
+    int userId, {
+    int page = 1,
+  }) async {
     try {
-      final response = await _dioClient.get('/users/$userId/following', queryParameters: {'page': page});
+      final response = await _dioClient.get(
+        '/users/$userId/following',
+        queryParameters: {'page': page},
+      );
       final paginatedData = response.data['data'];
       final List<dynamic> userListJson = paginatedData['data'] as List<dynamic>;
-      final users = userListJson.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
-      return ApiResponse(success: true, data: users, message: "Following list fetched");
+      final users =
+          userListJson
+              .map((json) => User.fromJson(json as Map<String, dynamic>))
+              .toList();
+      return ApiResponse(
+        success: true,
+        data: users,
+        message: "Following list fetched",
+      );
     } on DioException catch (e) {
-      return ApiResponse(success: false, message: e.response?.data?['message'] ?? 'Failed to fetch following list', data: null);
+      return ApiResponse(
+        success: false,
+        message:
+            e.response?.data?['message'] ?? 'Failed to fetch following list',
+        data: null,
+      );
     }
   }
 
-  Future<ApiResponse<List<User>>> getFollowersList(int userId, {int page = 1}) async {
+  Future<ApiResponse<List<User>>> getFollowersList(
+    int userId, {
+    int page = 1,
+  }) async {
     try {
-      final response = await _dioClient.get('/users/$userId/followers', queryParameters: {'page': page});
+      final response = await _dioClient.get(
+        '/users/$userId/followers',
+        queryParameters: {'page': page},
+      );
       final paginatedData = response.data['data'];
       final List<dynamic> userListJson = paginatedData['data'] as List<dynamic>;
-      final users = userListJson.map((json) => User.fromJson(json as Map<String, dynamic>)).toList();
-      return ApiResponse(success: true, data: users, message: "Followers list fetched");
+      final users =
+          userListJson
+              .map((json) => User.fromJson(json as Map<String, dynamic>))
+              .toList();
+      return ApiResponse(
+        success: true,
+        data: users,
+        message: "Followers list fetched",
+      );
     } on DioException catch (e) {
-      return ApiResponse(success: false, message: e.response?.data?['message'] ?? 'Failed to fetch followers list', data: null);
+      return ApiResponse(
+        success: false,
+        message:
+            e.response?.data?['message'] ?? 'Failed to fetch followers list',
+        data: null,
+      );
+    }
+  }
+
+  Future<ApiResponse<List<AppNotification>>> getNotifications({
+    int page = 1,
+  }) async {
+    try {
+      final response = await _dioClient.get(
+        '/notifications',
+        queryParameters: {'page': page},
+      );
+
+      // Laravel paginated response -> data['data'] is the array of notifications
+      final paginatedData = response.data['data'];
+      final List<dynamic> notificationListJson =
+          paginatedData['data'] as List<dynamic>;
+
+      final notifications =
+          notificationListJson
+              .map(
+                (json) =>
+                    AppNotification.fromJson(json as Map<String, dynamic>),
+              )
+              .toList();
+
+      return ApiResponse(
+        success: true,
+        data: notifications,
+        message: response.data['message'] ?? "Notifications fetched",
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message:
+            e.response?.data?['message'] ?? 'Failed to fetch notifications',
+        data: null,
+      );
+    }
+  }
+
+  Future<ApiResponse<void>> markNotificationAsRead(
+    String notificationId,
+  ) async {
+    try {
+      final response = await _dioClient.post(
+        '/notifications/$notificationId/read',
+      );
+      return ApiResponse(
+        success: true,
+        data: null,
+        message: response.data['message'] ?? "Marked as read",
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message: e.message ?? 'Failed to mark as read',
+        data: null,
+      );
     }
   }
 }
