@@ -712,4 +712,48 @@ class ApiProvider {
       );
     }
   }
+
+  // Delete a notification
+  Future<ApiResponse<void>> deleteNotification(String notificationId) async {
+    try {
+      final response = await _dioClient.delete(
+        '/notifications/$notificationId',
+      );
+      return ApiResponse(
+        success: true,
+        message: response.data['message'] ?? 'Notification deleted',
+        data: null,
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message:
+            e.response?.data?['message'] ??
+            e.message ??
+            'Failed to delete notification',
+        data: null,
+      );
+    }
+  }
+
+  // Mark all notifications as read
+  Future<ApiResponse<void>> markAllNotificationsAsRead() async {
+    try {
+      final response = await _dioClient.post('/notifications/mark-all-read');
+      return ApiResponse(
+        success: true,
+        message: response.data['message'] ?? 'All marked as read',
+        data: null,
+      );
+    } on DioException catch (e) {
+      return ApiResponse(
+        success: false,
+        message:
+            e.response?.data?['message'] ??
+            e.message ??
+            'Failed to mark all notifications as read',
+        data: null,
+      );
+    }
+  }
 }
