@@ -7,6 +7,8 @@ import 'package:sq_connect/app/modules/auth/auth_controller.dart';
 import 'package:sq_connect/app/modules/feed/feed_controller.dart';
 import 'package:sq_connect/app/modules/feed/widgets/post_card.dart';
 import 'package:sq_connect/app/modules/home/home_controller.dart';
+import 'package:sq_connect/app/modules/notification/notification_controller.dart';
+import 'package:sq_connect/app/modules/notification/screens/notification_screen.dart';
 import 'package:sq_connect/app/modules/profile/screens/profile_screen.dart'; // Placeholder
 import 'package:sq_connect/app/modules/search/screens/search_screen.dart';
 import 'package:sq_connect/app/routes/app_routes.dart';
@@ -17,13 +19,12 @@ class HomeScreen extends GetView<HomeController> {
 
   final AuthController authController = Get.find();
   final FeedController feedController = Get.find(); // Injected by HomeBinding
+  final NotificationController notificationController = Get.find(); // Add this
 
   final List<Widget> _screens = [
     FeedScreen(),
     SearchScreen(), // Search Screen
-    const Center(
-      child: Text('Notifications Screen - Placeholder'),
-    ), // Notifications
+    NotificationScreen(), // Real notifications screen instead of placeholder // Notifications
     ProfileScreen(
       userId: Get.find<AuthController>().currentUser.value?.id,
     ), // Profile Screen

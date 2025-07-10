@@ -7,10 +7,11 @@ import 'package:sq_connect/app/data/providers/api_provider.dart';
 import 'package:sq_connect/app/data/providers/dio_client.dart';
 import 'package:sq_connect/app/data/repositories/auth_repository.dart';
 import 'package:sq_connect/app/data/repositories/message_repository.dart';
+import 'package:sq_connect/app/data/repositories/notification_repository.dart';
 import 'package:sq_connect/app/data/repositories/post_repository.dart';
 import 'package:sq_connect/app/data/repositories/user_repository.dart';
 import 'package:sq_connect/app/modules/auth/auth_controller.dart';
-import 'package:sq_connect/app/modules/profile/profile_controller.dart';
+import 'package:sq_connect/app/modules/notification/notification_controller.dart';
 import 'package:sq_connect/app/modules/search/search_controller.dart';
 
 class InitialBinding extends Bindings {
@@ -44,16 +45,27 @@ class InitialBinding extends Bindings {
       ),
     );
 
+    // Notification controller via its binding
+    // NotificationBinding().dependencies();
     Get.put<AuthController>(
       AuthController(Get.find(), Get.find()),
       permanent: true,
+    );
+    Get.lazyPut<NotificationRepository>(
+      () => NotificationRepository(Get.find()),
+      fenix: true,
+    );
+
+    Get.lazyPut<NotificationController>(
+      () => NotificationController(Get.find()),
+      fenix: true,
     );
 
     // Controller for the Profile tab (showing the authenticated user's profile)
     // This instance will be used when ProfileScreen (for the auth'd user) is displayed as part of HomeScreen.
     // Get.lazyPut<ProfileController>(() {
     //   final authCtrl = Get.find<AuthController>();
-    
+
     //   return ProfileController(
     //     userRepository: Get.find<UserRepository>(),
     //     authController: authCtrl,

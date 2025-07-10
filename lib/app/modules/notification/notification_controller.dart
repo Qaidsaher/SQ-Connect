@@ -15,6 +15,7 @@ class NotificationController extends GetxController {
   final RxBool isLoadingMore = false.obs;
   final RxBool hasMore = true.obs;
   final RxString errorMessage = ''.obs;
+  final RxString selectedFilter = 'all'.obs;
 
   int _currentPage = 1;
 
@@ -22,6 +23,21 @@ class NotificationController extends GetxController {
   void onInit() {
     super.onInit();
     fetchNotifications(initialLoad: true);
+  }
+
+  List<AppNotification> get filteredNotifications {
+    switch (selectedFilter.value) {
+      case 'read':
+        return notifications.where((n) => n.read).toList();
+      case 'unread':
+        return notifications.where((n) => !n.read).toList();
+      default:
+        return notifications;
+    }
+  }
+
+  void setFilter(String filter) {
+    selectedFilter.value = filter;
   }
 
   Future<void> fetchNotifications({

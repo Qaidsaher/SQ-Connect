@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:sq_connect/app/config/app_colors.dart';
 import 'package:sq_connect/app/modules/notification/notification_controller.dart';
+import 'package:sq_connect/app/modules/notification/screens/widgets/circle_avatar_widget.dart';
 import 'package:sq_connect/app/ui/global_widgets/loading_indicator.dart';
 import 'package:timeago/timeago.dart' as timeago;
 
@@ -11,50 +12,116 @@ class NotificationScreen extends GetView<NotificationController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Notifications'),
-        actions: [
-          Obx(() {
-            final hasUnread = controller.notifications.any((n) => !n.read);
-            return hasUnread
-                ? TextButton(
-                  onPressed: controller.markAllAsRead,
-                  child: const Text(
-                    'Mark all as read',
-                    style: TextStyle(color: AppColors.primary),
-                  ),
-                )
-                : const SizedBox.shrink();
-          }),
-        ],
-      ),
       body: Obx(() {
         if (controller.isLoading.value) {
           return const Center(child: LoadingIndicator());
         }
 
-        if (controller.notifications.isEmpty) {
-          return const Center(child: Text('No notifications yet.'));
-        }
+        final notifications = controller.filteredNotifications;
 
-        return RefreshIndicator(
-          onRefresh: () => controller.fetchNotifications(refresh: true),
-          child: ListView.builder(
-            padding: const EdgeInsets.all(12),
-            itemCount: controller.notifications.length,
-            itemBuilder: (context, index) {
-              final notification = controller.notifications[index];
-              return _buildNotificationCard(notification);
-            },
-          ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildTopTabsWithMarkAll(),
+            Expanded(
+              child:
+                  notifications.isEmpty
+                      ? const Center(child: Text('No notifications.'))
+                      : RefreshIndicator(
+                        onRefresh:
+                            () => controller.fetchNotifications(refresh: true),
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(12),
+                          itemCount: notifications.length,
+                          itemBuilder: (context, index) {
+                            final notification = notifications[index];
+                            return _buildNotificationCard(notification);
+                          },
+                        ),
+                      ),
+            ),
+          ],
         );
       }),
+    );
+  }
+
+  Widget _buildTopTabsWithMarkAll() {
+    return Obx(() {
+      final selected = controller.selectedFilter.value;
+      final hasUnread = controller.notifications.any((n) => !n.read);
+
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  _buildTab(
+                    'All',
+                    selected == 'all',
+                    () => controller.setFilter('all'),
+                  ),
+                  _buildTab(
+                    'Unread',
+                    selected == 'unread',
+                    () => controller.setFilter('unread'),
+                  ),
+                  _buildTab(
+                    'Read',
+                    selected == 'read',
+                    () => controller.setFilter('read'),
+                  ),
+                ],
+              ),
+            ),
+            if (hasUnread)
+              TextButton(
+                onPressed: controller.markAllAsRead,
+                child: const Text(
+                  'Mark all as read',
+                  style: TextStyle(
+                    color: AppColors.secondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    });
+  }
+
+  Widget _buildTab(String label, bool isActive, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color:
+              isActive
+                  ? AppColors.primary.withOpacity(0.1)
+                  : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppColors.primary),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? AppColors.primary : Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
     );
   }
 
   Widget _buildNotificationCard(notification) {
     final user = notification.user;
     final isRead = notification.read;
+
     final icon =
         notification.icon != null
             ? Icon(
@@ -68,10 +135,10 @@ class NotificationScreen extends GetView<NotificationController> {
       onTap: () => controller.handleNotificationTap(notification),
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: isRead ? Colors.white : AppColors.secondary.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(6),
           border: Border.all(color: Colors.grey.shade300),
         ),
         child: Row(
@@ -83,14 +150,7 @@ class NotificationScreen extends GetView<NotificationController> {
                 backgroundImage: NetworkImage(user!.avatarUrl!),
               )
             else
-              CircleAvatar(
-                radius: 22,
-                backgroundColor: AppColors.primary,
-                child: Text(
-                  user?.username.substring(0, 1).toUpperCase() ?? '?',
-                  style: const TextStyle(color: Colors.white),
-                ),
-              ),
+              CircleLetterAvatar(letter: notification.icon),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -108,7 +168,6 @@ class NotificationScreen extends GetView<NotificationController> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      icon,
                       const SizedBox(width: 8),
                       Text(
                         timeago.format(
